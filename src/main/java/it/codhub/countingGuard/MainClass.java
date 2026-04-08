@@ -127,7 +127,11 @@ public class MainClass extends ListenerAdapter
 
                 Commands.slash("admin-stats", "Visualizza il profilo tecnico completo di un utente")
                         .addOption(OptionType.USER, "utente", "Utente da ispezionare", true)
-                        .setDefaultPermissions(DefaultMemberPermissions.DISABLED)
+                        .setDefaultPermissions(DefaultMemberPermissions.DISABLED),
+
+                Commands.slash("elimina-dati-utente", "Elimina definitivamente i dati di un utente su questo bot")
+                        .addOption(OptionType.USER, "utente", "Utente di cui vuoi eliminare i dati", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR))
 
         ).queue();
 
@@ -159,6 +163,7 @@ public class MainClass extends ListenerAdapter
                 case "set-log-channel" -> adminSetLogChannel(event);
                 case "set-counting-channel" -> adminSetCountingChannel(event);
                 case "admin-stats" -> adminStats(event);
+                case "elimina-dati-utente" -> eliminaDati(event);
 
             }
 
@@ -167,6 +172,43 @@ public class MainClass extends ListenerAdapter
     }
 
     // --- LOGICA ADMIN ---
+
+    private void eliminaDati(SlashCommandInteractionEvent event)
+    {
+
+        var targetUser = event.getOption("utente").getAsUser();
+        String uid = targetUser.getId();
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM utenti WHERE id = ?"))
+        {
+
+            ps.setString(1, uid);
+            int rowsDeleted = ps.executeUpdate();
+
+            if (rowsDeleted > 0)
+            {
+
+                event.getHook().editOriginal("I dati di " + targetUser.getAsMention() + " sono stati eliminati definitivamente dal database.").queue();
+
+            }
+            else
+            {
+
+                event.getHook().editOriginal("L'utente " + targetUser.getAsMention() + " non aveva dati registrati nel database.").queue();
+
+            }
+
+        }
+        catch (SQLException e)
+        {
+
+            e.printStackTrace();
+            event.getHook().editOriginal("Errore durante l'eliminazione dei dati dal database.").queue();
+
+        }
+
+    }
 
     private void adminStats(SlashCommandInteractionEvent event)
     {
